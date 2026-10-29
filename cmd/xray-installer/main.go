@@ -177,7 +177,7 @@ func readLine(reader *bufio.Reader) (string, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintf(w, `xray-installer - 在 VPS 本机交互式安装 Xray Reality 并生成 FlClash / Mihomo 配置
+	fmt.Fprintf(w, `xray-installer - 在 VPS 本机交互式安装 Xray Reality 并生成 FlClash / Mihomo / 小火箭配置及二维码
 
 用法:
   xray-installer [--dry-run]

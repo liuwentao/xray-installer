@@ -46,6 +46,7 @@ xray-installer
 - 启动并启用 `xray` systemd 服务
 - 生成文章同款长版 FlClash 配置 `proxy.yaml`
 - 生成独立的 Mihomo 配置 `mihomo.yaml`，使用同一个 VLESS + Reality 节点
+- 生成小火箭（Shadowrocket）分享链接和 PNG 二维码，安装完成后在终端显示导入二维码
 - 支持 `uninstall`
 - 支持 `update` 更新 Xray，保留现有配置
 - 支持 `--dry-run`
@@ -130,6 +131,23 @@ mihomo -f ./mihomo.yaml
 
 `update` 只更新 Xray，不补生成客户端配置。已有安装可继续使用原来的 `proxy.yaml`（同样使用 Mihomo 配置格式）；不要为了获取新文件而重新安装并更换现有节点参数。
 
+## 小火箭（Shadowrocket）导入
+
+安装完成后，打开小火箭的扫描功能，扫描终端显示的二维码即可添加同一个 VLESS + Reality + Vision 节点。
+分享链接按照 [VLESS 分享链接标准](https://github.com/XTLS/Xray-core/discussions/716)生成，包含服务器地址、UUID、Reality 公钥、Short ID、SNI 和 Vision flow。
+
+也可以复制分享链接，再在小火箭中从剪贴板导入：
+
+```bash
+sudo cat /usr/local/etc/xray-installer/shadowrocket.txt
+```
+
+如果终端太窄导致二维码换行，将 `/usr/local/etc/xray-installer/shadowrocket.png` 复制到本地打开后扫描，或保存到手机相册后在小火箭中选择图片识别。
+二维码在本地生成，内容与 `shadowrocket.txt` 中的链接一致；这两个文件包含节点访问凭据，权限为 `0600`，请妥善保管。
+
+`--dry-run` 只预览文件路径，不保存文件或显示可导入的二维码。`update` 不会为已有安装补生成这些文件。
+连接还需小火箭版本支持服务端当前的 Reality 握手要求，需在实际设备上验证。
+
 ## 卸载
 
 ```bash
@@ -146,6 +164,8 @@ sudo ./xray-installer uninstall
 - Xray 配置：`/usr/local/etc/xray/config.json`
 - FlClash 配置：`/usr/local/etc/xray-installer/proxy.yaml`
 - Mihomo 配置：`/usr/local/etc/xray-installer/mihomo.yaml`
+- 小火箭分享链接：`/usr/local/etc/xray-installer/shadowrocket.txt`
+- 小火箭二维码：`/usr/local/etc/xray-installer/shadowrocket.png`
 - 安装记录：`/usr/local/etc/xray-installer/install-result.json`
 
 安装完成后，可用下面命令直接获取 FlClash 配置：
