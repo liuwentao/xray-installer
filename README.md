@@ -49,6 +49,8 @@ xray-installer
 - 支持 `--dry-run`
 - 支持 GitHub Release 二进制一键安装脚本 `install.sh`
 
+生成的 FlClash 配置默认启用 `reality-opts.support-x25519mlkem768: true`，用于兼容新版 Xray 的 REALITY 握手要求。
+
 ## 当前边界
 
 - 只支持 **Debian / Ubuntu / Arch Linux + systemd**

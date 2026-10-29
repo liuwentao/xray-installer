@@ -212,6 +212,7 @@ proxies:
     reality-opts:
       public-key: {{ q .PublicKey }}     # ←←← 改成服务端 xray x25519 生成的 PublicKey
       short-id: {{ q .ShortID }}   # ←←← 和服务端 shortIds 保持一致
+      support-x25519mlkem768: true
     skip-cert-verify: false
 
 # 策略组
