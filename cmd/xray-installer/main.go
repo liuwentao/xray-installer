@@ -16,6 +16,7 @@ import (
 
 const (
 	commandInstall   = "install"
+	commandUpdate    = "update"
 	commandUninstall = "uninstall"
 )
 
@@ -26,10 +27,11 @@ var (
 )
 
 type cliOptions struct {
-	command string
-	dryRun  bool
-	help    bool
-	version bool
+	command     string
+	dryRun      bool
+	help        bool
+	version     bool
+	xrayVersion string
 }
 
 func main() {
@@ -68,6 +70,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "\nError: %v\n", err)
 			return 1
 		}
+	case commandUpdate:
+		if err := inst.Update(context.Background(), installer.UpdateRequest{Version: options.xrayVersion, DryRun: options.dryRun}); err != nil {
+			fmt.Fprintf(stderr, "\nError: %v\n", err)
+			return 1
+		}
 	case commandUninstall:
 		if err := inst.Uninstall(context.Background(), options.dryRun); err != nil {
 			fmt.Fprintf(stderr, "\nError: %v\n", err)
@@ -84,8 +91,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 func parseCLI(args []string) (cliOptions, error) {
 	options := cliOptions{command: commandInstall}
 
-	if len(args) > 0 && args[0] == commandUninstall {
-		options.command = commandUninstall
+	if len(args) > 0 && (args[0] == commandUninstall || args[0] == commandUpdate) {
+		options.command = args[0]
 		args = args[1:]
 	}
 
@@ -95,6 +102,9 @@ func parseCLI(args []string) (cliOptions, error) {
 	fs.BoolVar(&options.help, "help", false, "show help")
 	fs.BoolVar(&options.help, "h", false, "show help")
 	fs.BoolVar(&options.version, "version", false, "show version")
+	if options.command == commandUpdate {
+		fs.StringVar(&options.xrayVersion, "xray-version", "", "target Xray version (default: latest stable)")
+	}
 
 	if err := fs.Parse(args); err != nil {
 		return options, err
@@ -167,10 +177,11 @@ func readLine(reader *bufio.Reader) (string, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintf(w, `xray-installer - 在 VPS 本机交互式安装 Xray Reality 并生成 FlClash 配置
+	fmt.Fprintf(w, `xray-installer - 在 VPS 本机交互式安装 Xray Reality 并生成 FlClash / Mihomo 配置
 
 用法:
   xray-installer [--dry-run]
+  xray-installer update [--xray-version vX.Y.Z] [--dry-run]
   xray-installer uninstall [--dry-run]
   xray-installer --version
   xray-installer --help
@@ -181,10 +192,12 @@ func printUsage(w io.Writer) {
   3. 然后自动安装 Xray、生成配置并启动服务
 
 命令:
+  update       更新 Xray，保留现有节点和客户端配置
   uninstall    卸载 Xray，并删除 xray-installer 生成的文件
 
 选项:
-  --dry-run    只预览，不实际安装 / 卸载 / 写文件 / 重启服务
+  --dry-run    只预览，不实际安装 / 更新 / 卸载 / 写文件 / 重启服务
+  --xray-version  指定更新的 Xray 版本（仅 update，默认最新稳定版）
   --version    输出版本信息
   -h, --help   输出帮助
 
@@ -196,6 +209,8 @@ func printUsage(w io.Writer) {
   xray-installer --dry-run
   xray-installer --version
   sudo xray-installer uninstall
+  sudo xray-installer update
+  sudo xray-installer update --xray-version v26.3.27
 `, installer.DefaultNodeName)
 }
 

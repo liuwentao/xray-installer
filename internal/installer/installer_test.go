@@ -43,19 +43,23 @@ func TestPrintSummaryIncludesFlClashCommand(t *testing.T) {
 	var stdout bytes.Buffer
 	inst := New(&stdout, &stdout)
 	inst.printSummary(&Result{
-		Domain:          "xx.example.com",
-		NodeName:        DefaultNodeName,
-		PublicIP:        "1.2.3.4",
-		Port:            443,
-		UUID:            "uuid",
-		PublicKey:       "pub",
-		ShortID:         "short",
-		XrayConfigPath:  xrayConfigPath,
-		ProxyConfigPath: proxyConfigPath,
+		Domain:           "xx.example.com",
+		NodeName:         DefaultNodeName,
+		PublicIP:         "1.2.3.4",
+		Port:             443,
+		UUID:             "uuid",
+		PublicKey:        "pub",
+		ShortID:          "short",
+		XrayConfigPath:   xrayConfigPath,
+		ProxyConfigPath:  proxyConfigPath,
+		MihomoConfigPath: mihomoConfigPath,
 	})
 
 	if !strings.Contains(stdout.String(), "sudo cat "+proxyConfigPath) {
 		t.Fatalf("summary missing flclash fetch command: %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "sudo cat "+mihomoConfigPath) {
+		t.Fatalf("summary missing mihomo fetch command: %q", stdout.String())
 	}
 }
 
@@ -65,15 +69,21 @@ func TestPrintDryRunSummaryIncludesFlClashCommandHint(t *testing.T) {
 	var stdout bytes.Buffer
 	inst := New(&stdout, &stdout)
 	inst.printDryRunSummary(&Result{
-		Domain:          "xx.example.com",
-		NodeName:        DefaultNodeName,
-		PublicIP:        "1.2.3.4",
-		XrayConfigPath:  xrayConfigPath,
-		ProxyConfigPath: proxyConfigPath,
+		Domain:           "xx.example.com",
+		NodeName:         DefaultNodeName,
+		PublicIP:         "1.2.3.4",
+		XrayConfigPath:   xrayConfigPath,
+		ProxyConfigPath:  proxyConfigPath,
+		MihomoConfigPath: mihomoConfigPath,
 	})
 
 	if !strings.Contains(stdout.String(), "sudo cat "+proxyConfigPath) {
 		t.Fatalf("dry-run summary missing flclash fetch command hint: %q", stdout.String())
+	}
+	for _, want := range []string{"would write mihomo config to: " + mihomoConfigPath, "sudo cat " + mihomoConfigPath} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("dry-run summary missing %q: %q", want, stdout.String())
+		}
 	}
 }
 

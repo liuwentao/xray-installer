@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_OWNER="manateelazycat"
+REPO_OWNER="liuwentao"
 REPO_NAME="xray-installer"
 REPO_SLUG="${REPO_OWNER}/${REPO_NAME}"
 INSTALL_PATH="/usr/local/bin/xray-installer"
@@ -13,12 +13,14 @@ xray-installer bootstrap script
 Usage:
   install.sh install [--version vX.Y.Z] [--no-run] [-- xray-installer-args...]
   install.sh uninstall [-- xray-installer uninstall args...]
+  install.sh update [--xray-version vX.Y.Z] [--dry-run]
   install.sh help
 
 Examples:
-  bash <(curl -fsSL https://raw.githubusercontent.com/manateelazycat/xray-installer/main/install.sh) install
-  bash <(curl -fsSL https://raw.githubusercontent.com/manateelazycat/xray-installer/main/install.sh) install -- --dry-run
-  bash <(curl -fsSL https://raw.githubusercontent.com/manateelazycat/xray-installer/main/install.sh) uninstall
+  bash <(curl -fsSL https://raw.githubusercontent.com/liuwentao/xray-installer/main/install.sh) install
+  bash <(curl -fsSL https://raw.githubusercontent.com/liuwentao/xray-installer/main/install.sh) install -- --dry-run
+  bash <(curl -fsSL https://raw.githubusercontent.com/liuwentao/xray-installer/main/install.sh) uninstall
+  bash <(curl -fsSL https://raw.githubusercontent.com/liuwentao/xray-installer/main/install.sh) update
 EOF
 }
 
@@ -184,6 +186,15 @@ run_uninstall() {
   fi
 }
 
+run_update() {
+  [[ -x "${INSTALL_PATH}" ]] || fail "xray-installer is not installed at ${INSTALL_PATH}; install it first"
+  if sudo_prefix; then
+    sudo "${INSTALL_PATH}" update "$@"
+  else
+    "${INSTALL_PATH}" update "$@"
+  fi
+}
+
 main() {
   local command="${1:-install}"
   shift || true
@@ -220,6 +231,9 @@ main() {
         esac
       done
       install_binary "$version_ref" "$run_after_install" "${forward_args[@]}"
+      ;;
+    update)
+      run_update "$@"
       ;;
     uninstall)
       run_uninstall "$@"

@@ -31,6 +31,7 @@ const (
 	xrayConfigPath   = "/usr/local/etc/xray/config.json"
 	outputDir        = "/usr/local/etc/xray-installer"
 	proxyConfigPath  = "/usr/local/etc/xray-installer/proxy.yaml"
+	mihomoConfigPath = "/usr/local/etc/xray-installer/mihomo.yaml"
 	metadataPath     = "/usr/local/etc/xray-installer/install-result.json"
 	installScriptURL = "https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh"
 
@@ -52,18 +53,19 @@ type InstallRequest struct {
 }
 
 type Result struct {
-	Domain          string    `json:"domain"`
-	NodeName        string    `json:"node_name"`
-	PublicIP        string    `json:"public_ip"`
-	Port            int       `json:"port"`
-	UUID            string    `json:"uuid"`
-	PublicKey       string    `json:"public_key"`
-	ShortID         string    `json:"short_id"`
-	DestHost        string    `json:"dest_host"`
-	XrayConfigPath  string    `json:"xray_config_path"`
-	ProxyConfigPath string    `json:"proxy_config_path"`
-	DryRun          bool      `json:"dry_run"`
-	InstalledAt     time.Time `json:"installed_at"`
+	Domain           string    `json:"domain"`
+	NodeName         string    `json:"node_name"`
+	PublicIP         string    `json:"public_ip"`
+	Port             int       `json:"port"`
+	UUID             string    `json:"uuid"`
+	PublicKey        string    `json:"public_key"`
+	ShortID          string    `json:"short_id"`
+	DestHost         string    `json:"dest_host"`
+	XrayConfigPath   string    `json:"xray_config_path"`
+	ProxyConfigPath  string    `json:"proxy_config_path"`
+	MihomoConfigPath string    `json:"mihomo_config_path"`
+	DryRun           bool      `json:"dry_run"`
+	InstalledAt      time.Time `json:"installed_at"`
 }
 
 func New(stdout, stderr io.Writer) *Installer {
@@ -133,20 +135,25 @@ func (i *Installer) Run(ctx context.Context, req InstallRequest) (*Result, error
 	if err != nil {
 		return nil, err
 	}
+	mihomoConfig, err := config.RenderMihomo(params)
+	if err != nil {
+		return nil, err
+	}
 
 	result := &Result{
-		Domain:          domain,
-		NodeName:        nodeName,
-		PublicIP:        publicIP,
-		Port:            config.DefaultPort,
-		UUID:            uuid,
-		PublicKey:       publicKey,
-		ShortID:         shortID,
-		DestHost:        destHost,
-		XrayConfigPath:  xrayConfigPath,
-		ProxyConfigPath: proxyConfigPath,
-		DryRun:          req.DryRun,
-		InstalledAt:     time.Now().UTC(),
+		Domain:           domain,
+		NodeName:         nodeName,
+		PublicIP:         publicIP,
+		Port:             config.DefaultPort,
+		UUID:             uuid,
+		PublicKey:        publicKey,
+		ShortID:          shortID,
+		DestHost:         destHost,
+		XrayConfigPath:   xrayConfigPath,
+		ProxyConfigPath:  proxyConfigPath,
+		MihomoConfigPath: mihomoConfigPath,
+		DryRun:           req.DryRun,
+		InstalledAt:      time.Now().UTC(),
 	}
 
 	if req.DryRun {
@@ -182,6 +189,12 @@ func (i *Installer) Run(ctx context.Context, req InstallRequest) (*Result, error
 	if err := writeFileAtomic(proxyConfigPath, flClashConfig, privateMode); err != nil {
 		return nil, fmt.Errorf("write flclash config: %w", err)
 	}
+	if _, err := backupIfExists(mihomoConfigPath); err != nil {
+		return nil, err
+	}
+	if err := writeFileAtomic(mihomoConfigPath, mihomoConfig, privateMode); err != nil {
+		return nil, fmt.Errorf("write mihomo config: %w", err)
+	}
 
 	i.step("启动并验证 Xray 服务")
 	if err := i.enableAndRestartXray(ctx); err != nil {
@@ -215,7 +228,7 @@ func (i *Installer) Uninstall(ctx context.Context, dryRun bool) error {
 	i.step("检查卸载目标")
 
 	xrayInstalled := pathExists(xrayBinary) || pathExists("/etc/systemd/system/xray.service")
-	paths := []string{xrayConfigPath, proxyConfigPath, metadataPath, outputDir}
+	paths := []string{xrayConfigPath, proxyConfigPath, mihomoConfigPath, metadataPath, outputDir}
 
 	if dryRun {
 		fmt.Fprintln(i.stdout, "Dry run：以下内容将被移除：")
@@ -244,7 +257,7 @@ func (i *Installer) Uninstall(ctx context.Context, dryRun bool) error {
 		fmt.Fprintln(i.stdout, "未检测到已安装的 Xray，跳过官方卸载脚本。")
 	}
 
-	for _, path := range []string{xrayConfigPath, proxyConfigPath, metadataPath} {
+	for _, path := range []string{xrayConfigPath, proxyConfigPath, mihomoConfigPath, metadataPath} {
 		if err := removePathIfExists(path); err != nil {
 			return err
 		}
@@ -291,14 +304,15 @@ func (i *Installer) preflight(ctx context.Context, requireRoot bool) (string, er
 	return publicIP, nil
 }
 
-func (i *Installer) installXray(ctx context.Context) error {
+func (i *Installer) installXray(ctx context.Context, options ...string) error {
 	scriptPath, err := downloadInstallScript(ctx)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(scriptPath)
 
-	cmd := exec.CommandContext(ctx, "bash", scriptPath, "install")
+	args := append([]string{scriptPath, "install"}, options...)
+	cmd := exec.CommandContext(ctx, "bash", args...)
 	cmd.Stdout = i.stdout
 	cmd.Stderr = i.stderr
 	if err := cmd.Run(); err != nil {
@@ -403,8 +417,10 @@ func (i *Installer) printSummary(result *Result) {
 	fmt.Fprintf(i.stdout, "- short id: %s\n", result.ShortID)
 	fmt.Fprintf(i.stdout, "- xray config: %s\n", result.XrayConfigPath)
 	fmt.Fprintf(i.stdout, "- flclash config: %s\n", result.ProxyConfigPath)
+	fmt.Fprintf(i.stdout, "- mihomo config: %s\n", result.MihomoConfigPath)
 	fmt.Fprintf(i.stdout, "- install record: %s\n", metadataPath)
 	fmt.Fprintf(i.stdout, "\n获取 FlClash 配置命令：\n  sudo cat %s\n", result.ProxyConfigPath)
+	fmt.Fprintf(i.stdout, "\n获取 Mihomo 配置命令：\n  sudo cat %s\n", result.MihomoConfigPath)
 }
 
 func (i *Installer) printDryRunSummary(result *Result) {
@@ -415,8 +431,10 @@ func (i *Installer) printDryRunSummary(result *Result) {
 	fmt.Fprintf(i.stdout, "- public ip: %s\n", result.PublicIP)
 	fmt.Fprintf(i.stdout, "- would write xray config to: %s\n", result.XrayConfigPath)
 	fmt.Fprintf(i.stdout, "- would write flclash config to: %s\n", result.ProxyConfigPath)
+	fmt.Fprintf(i.stdout, "- would write mihomo config to: %s\n", result.MihomoConfigPath)
 	fmt.Fprintf(i.stdout, "- would save install record to: %s\n", metadataPath)
 	fmt.Fprintf(i.stdout, "\n实际安装完成后可用以下命令获取 FlClash 配置：\n  sudo cat %s\n", result.ProxyConfigPath)
+	fmt.Fprintf(i.stdout, "\n实际安装完成后可用以下命令获取 Mihomo 配置：\n  sudo cat %s\n", result.MihomoConfigPath)
 }
 
 func normalizeDomain(input string) (string, error) {

@@ -38,6 +38,36 @@ func TestParseCLI(t *testing.T) {
 			want: cliOptions{command: commandInstall, help: true},
 		},
 		{
+			name: "update latest",
+			args: []string{"update"},
+			want: cliOptions{command: commandUpdate},
+		},
+		{
+			name: "update specific version dry-run",
+			args: []string{"update", "--xray-version", "v26.3.27", "--dry-run"},
+			want: cliOptions{command: commandUpdate, xrayVersion: "v26.3.27", dryRun: true},
+		},
+		{
+			name: "update help",
+			args: []string{"update", "--help"},
+			want: cliOptions{command: commandUpdate, help: true},
+		},
+		{
+			name: "update installer version",
+			args: []string{"update", "--version"},
+			want: cliOptions{command: commandUpdate, version: true},
+		},
+		{
+			name:    "missing xray version",
+			args:    []string{"update", "--xray-version"},
+			wantErr: "needs an argument",
+		},
+		{
+			name:    "xray version only for update",
+			args:    []string{"--xray-version", "v26.3.27"},
+			wantErr: "flag provided but not defined",
+		},
+		{
 			name: "version",
 			args: []string{"--version"},
 			want: cliOptions{command: commandInstall, version: true},
@@ -136,5 +166,17 @@ func TestRunVersion(t *testing.T) {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout missing %q in %q", want, stdout.String())
 		}
+	}
+}
+
+func TestRunUpdateInvalidVersionDoesNotPrompt(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"update", "--xray-version", "--force"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 || !strings.Contains(stderr.String(), "invalid Xray version") {
+		t.Fatalf("code = %d, stderr = %q", code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "请输入") {
+		t.Fatalf("update must not prompt for installation: %q", stdout.String())
 	}
 }

@@ -13,25 +13,25 @@ FlClash 节点名称固定为博客长模板中的 `[自建 1] 美国家宽-Real
 > `install.sh` 会从 GitHub Releases 下载预编译二进制，因此仓库需要先发布一个 tag/release。
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/manateelazycat/xray-installer/main/install.sh) install
+bash <(curl -fsSL https://raw.githubusercontent.com/liuwentao/xray-installer/main/install.sh) install
 ```
 
 仅安装，不立即运行：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/manateelazycat/xray-installer/main/install.sh) install --no-run
+bash <(curl -fsSL https://raw.githubusercontent.com/liuwentao/xray-installer/main/install.sh) install --no-run
 ```
 
 安装后以 dry-run 方式立刻启动：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/manateelazycat/xray-installer/main/install.sh) install -- --dry-run
+bash <(curl -fsSL https://raw.githubusercontent.com/liuwentao/xray-installer/main/install.sh) install -- --dry-run
 ```
 
 一键卸载：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/manateelazycat/xray-installer/main/install.sh) uninstall
+bash <(curl -fsSL https://raw.githubusercontent.com/liuwentao/xray-installer/main/install.sh) uninstall
 ```
 
 ```bash
@@ -45,7 +45,9 @@ xray-installer
 - 生成 VLESS + Reality + Vision 服务端配置
 - 启动并启用 `xray` systemd 服务
 - 生成文章同款长版 FlClash 配置 `proxy.yaml`
+- 生成独立的 Mihomo 配置 `mihomo.yaml`，使用同一个 VLESS + Reality 节点
 - 支持 `uninstall`
+- 支持 `update` 更新 Xray，保留现有配置
 - 支持 `--dry-run`
 - 支持 GitHub Release 二进制一键安装脚本 `install.sh`
 
@@ -77,6 +79,57 @@ sudo ./xray-installer
 ./xray-installer --version
 ```
 
+## 更新 Xray
+
+将已安装的 Xray 更新到最新稳定版：
+
+```bash
+sudo xray-installer update
+```
+
+指定 Xray 版本（也可用于切换到旧版，请确保版本与现有配置兼容）：
+
+```bash
+sudo xray-installer update --xray-version v26.3.27
+```
+
+预览更新，不下载文件、不修改系统、不重启服务：
+
+```bash
+xray-installer update --dry-run
+```
+
+也可通过脚本调用已安装的安装器：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/liuwentao/xray-installer/main/install.sh) update
+```
+
+更新要求已有完整的 Xray 安装和配置，不会重新询问域名或生成 UUID、Reality 密钥及 FlClash 配置。
+通过 [Xray 官方安装脚本](https://github.com/XTLS/Xray-install/blob/main/install-release.sh) 更新，保留现有 systemd 服务设置，更新后校验原有服务端配置，再重启并检查服务状态。
+如果校验失败，会返回错误并跳过重启；已替换的二进制不会自动回滚。`--version` 仍用于显示安装器版本。
+
+## Mihomo 配置
+
+安装完成后，除 FlClash 长版配置外，还会生成 `/usr/local/etc/xray-installer/mihomo.yaml`：
+
+```bash
+sudo cat /usr/local/etc/xray-installer/mihomo.yaml
+```
+
+将该文件复制到运行 Mihomo 的客户端，保存为 `mihomo.yaml`，然后执行：
+
+```bash
+mihomo -t -f ./mihomo.yaml
+mihomo -f ./mihomo.yaml
+```
+
+配置提供本地 HTTP / SOCKS 混合端口 `127.0.0.1:7890`，在浏览器或系统中设置该代理后使用。
+局域网 IPv4 地址直连，其余流量默认通过自建节点；`PROXY` 组也可选择 `DIRECT`。不自动启用 TUN，不依赖在线规则集或 Geo 数据下载。
+使用支持 `reality-opts.support-x25519mlkem768` 的 Mihomo 版本，字段说明见 [Mihomo TLS 文档](https://wiki.metacubex.one/config/proxies/tls/)。
+
+`update` 只更新 Xray，不补生成客户端配置。已有安装可继续使用原来的 `proxy.yaml`（同样使用 Mihomo 配置格式）；不要为了获取新文件而重新安装并更换现有节点参数。
+
 ## 卸载
 
 ```bash
@@ -92,6 +145,7 @@ sudo ./xray-installer uninstall
 生成文件：
 - Xray 配置：`/usr/local/etc/xray/config.json`
 - FlClash 配置：`/usr/local/etc/xray-installer/proxy.yaml`
+- Mihomo 配置：`/usr/local/etc/xray-installer/mihomo.yaml`
 - 安装记录：`/usr/local/etc/xray-installer/install-result.json`
 
 安装完成后，可用下面命令直接获取 FlClash 配置：
