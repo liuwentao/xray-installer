@@ -33,6 +33,13 @@ var flClashTemplate string
 //go:embed templates/mihomo.yaml.tmpl
 var mihomoTemplate string
 
+//go:embed templates/xray-client.json.tmpl
+var xrayClientTemplate string
+
+func RenderXrayClient(params Parameters) ([]byte, error) {
+	return render("xray-client", xrayClientTemplate, params)
+}
+
 func RenderXray(params Parameters) ([]byte, error) {
 	data, err := render("xray", xrayTemplate, params)
 	if err != nil {

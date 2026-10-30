@@ -7,6 +7,7 @@
 - Reality 伪装目标域名（直接回车默认 `www.bing.com`）
 
 FlClash 节点名称固定为博客长模板中的 `[自建 1] 美国家宽-Reality`，然后自动继续安装。
+安装始终按初始化流程重新生成节点参数并备份、覆盖已有配置；保留现有节点请使用 `update`。
 
 ## 一键安装并立即执行
 
@@ -46,6 +47,7 @@ xray-installer
 - 启动并启用 `xray` systemd 服务
 - 生成文章同款长版 FlClash 配置 `proxy.yaml`
 - 生成独立的 Mihomo 配置 `mihomo.yaml`，使用同一个 VLESS + Reality 节点
+- 生成原生 Xray 客户端配置 `xray-client.json`，使用同一个 VLESS + Reality + Vision 节点
 - 生成小火箭（Shadowrocket）分享链接和 PNG 二维码，安装完成后在终端显示导入二维码
 - 支持 `uninstall`
 - 支持 `update` 更新 Xray，保留现有配置
@@ -106,7 +108,7 @@ xray-installer update --dry-run
 bash <(curl -fsSL https://raw.githubusercontent.com/liuwentao/xray-installer/main/install.sh) update
 ```
 
-更新要求已有完整的 Xray 安装和配置，不会重新询问域名或生成 UUID、Reality 密钥及 FlClash 配置。
+更新要求已有完整的 Xray 安装和配置，不会重新询问域名或生成 UUID、Reality 密钥及 FlClash 配置。如果缺少 `xray-client.json`，会读取原有 `install-result.json` 中的节点参数补生成；已有客户端文件保持原样。安装记录缺失或参数不完整时，会在更新前报错。
 通过 [Xray 官方安装脚本](https://github.com/XTLS/Xray-install/blob/main/install-release.sh) 更新，保留现有 systemd 服务设置，更新后校验原有服务端配置，再重启并检查服务状态。
 如果校验失败，会返回错误并跳过重启；已替换的二进制不会自动回滚。`--version` 仍用于显示安装器版本。
 
@@ -129,7 +131,20 @@ mihomo -f ./mihomo.yaml
 局域网 IPv4 地址直连，其余流量默认通过自建节点；`PROXY` 组也可选择 `DIRECT`。不自动启用 TUN，不依赖在线规则集或 Geo 数据下载。
 使用支持 `reality-opts.support-x25519mlkem768` 的 Mihomo 版本，字段说明见 [Mihomo TLS 文档](https://wiki.metacubex.one/config/proxies/tls/)。
 
-`update` 只更新 Xray，不补生成客户端配置。已有安装可继续使用原来的 `proxy.yaml`（同样使用 Mihomo 配置格式）；不要为了获取新文件而重新安装并更换现有节点参数。
+`update` 不补生成 Mihomo 配置。已有安装可继续使用原来的 `proxy.yaml`（同样使用 Mihomo 配置格式）。
+
+## 原生 Xray 客户端配置
+
+安装或更新补生成后的文件位于 `/usr/local/etc/xray-installer/xray-client.json`，权限为 `0600`。将它复制到客户端，执行：
+
+```bash
+xray run -test -config ./xray-client.json
+xray run -config ./xray-client.json
+```
+
+客户端提供 SOCKS5 `127.0.0.1:1080`（支持 UDP）和 HTTP `127.0.0.1:8080`，流量通过自建节点转发，不启用 TUN。Reality 使用官方文档中的 [`password` 客户端字段](https://xtls.github.io/config/transports/reality.html)，内容为服务端公钥；客户端文件不包含服务端私钥。请使用支持该字段的 Xray 版本。
+
+`update` 即使无需升级 Xray 版本，也会补生成缺失的原生客户端配置；`update --dry-run` 只预览，不写文件。
 
 ## 小火箭（Shadowrocket）导入
 
@@ -164,6 +179,7 @@ sudo ./xray-installer uninstall
 - Xray 配置：`/usr/local/etc/xray/config.json`
 - FlClash 配置：`/usr/local/etc/xray-installer/proxy.yaml`
 - Mihomo 配置：`/usr/local/etc/xray-installer/mihomo.yaml`
+- 原生 Xray 客户端配置：`/usr/local/etc/xray-installer/xray-client.json`
 - 小火箭分享链接：`/usr/local/etc/xray-installer/shadowrocket.txt`
 - 小火箭二维码：`/usr/local/etc/xray-installer/shadowrocket.png`
 - 安装记录：`/usr/local/etc/xray-installer/install-result.json`

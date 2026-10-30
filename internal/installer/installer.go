@@ -32,6 +32,7 @@ const (
 	outputDir              = "/usr/local/etc/xray-installer"
 	proxyConfigPath        = "/usr/local/etc/xray-installer/proxy.yaml"
 	mihomoConfigPath       = "/usr/local/etc/xray-installer/mihomo.yaml"
+	xrayClientConfigPath   = "/usr/local/etc/xray-installer/xray-client.json"
 	shadowrocketConfigPath = "/usr/local/etc/xray-installer/shadowrocket.txt"
 	shadowrocketQRPath     = "/usr/local/etc/xray-installer/shadowrocket.png"
 	metadataPath           = "/usr/local/etc/xray-installer/install-result.json"
@@ -66,6 +67,7 @@ type Result struct {
 	XrayConfigPath         string    `json:"xray_config_path"`
 	ProxyConfigPath        string    `json:"proxy_config_path"`
 	MihomoConfigPath       string    `json:"mihomo_config_path"`
+	XrayClientConfigPath   string    `json:"xray_client_config_path"`
 	ShadowrocketConfigPath string    `json:"shadowrocket_config_path"`
 	ShadowrocketQRPath     string    `json:"shadowrocket_qr_path"`
 	DryRun                 bool      `json:"dry_run"`
@@ -134,6 +136,10 @@ func (i *Installer) Run(ctx context.Context, req InstallRequest) (*Result, error
 	if err != nil {
 		return nil, err
 	}
+	xrayClientConfig, err := config.RenderXrayClient(params)
+	if err != nil {
+		return nil, err
+	}
 
 	flClashConfig, err := config.RenderFlClash(params)
 	if err != nil {
@@ -160,6 +166,7 @@ func (i *Installer) Run(ctx context.Context, req InstallRequest) (*Result, error
 		XrayConfigPath:         xrayConfigPath,
 		ProxyConfigPath:        proxyConfigPath,
 		MihomoConfigPath:       mihomoConfigPath,
+		XrayClientConfigPath:   xrayClientConfigPath,
 		ShadowrocketConfigPath: shadowrocketConfigPath,
 		ShadowrocketQRPath:     shadowrocketQRPath,
 		DryRun:                 req.DryRun,
@@ -169,6 +176,9 @@ func (i *Installer) Run(ctx context.Context, req InstallRequest) (*Result, error
 	if req.DryRun {
 		i.step("校验生成结果")
 		if err := i.validateDryRun(ctx, xrayConfig); err != nil {
+			return nil, err
+		}
+		if err := i.validateDryRun(ctx, xrayClientConfig); err != nil {
 			return nil, err
 		}
 		i.printDryRunSummary(result)
@@ -183,6 +193,9 @@ func (i *Installer) Run(ctx context.Context, req InstallRequest) (*Result, error
 	}
 
 	if err := i.validateXrayConfig(ctx, xrayConfig); err != nil {
+		return nil, err
+	}
+	if err := i.validateXrayConfig(ctx, xrayClientConfig); err != nil {
 		return nil, err
 	}
 
@@ -209,6 +222,7 @@ func (i *Installer) Run(ctx context.Context, req InstallRequest) (*Result, error
 		path string
 		data []byte
 	}{
+		{xrayClientConfigPath, xrayClientConfig},
 		{shadowrocketConfigPath, []byte(shadowrocketURI + "\n")},
 		{shadowrocketQRPath, shadowrocketPNG},
 	} {
@@ -216,7 +230,7 @@ func (i *Installer) Run(ctx context.Context, req InstallRequest) (*Result, error
 			return nil, err
 		}
 		if err := writeFileAtomic(file.path, file.data, privateMode); err != nil {
-			return nil, fmt.Errorf("write shadowrocket file %s: %w", file.path, err)
+			return nil, fmt.Errorf("write client file %s: %w", file.path, err)
 		}
 	}
 
@@ -254,7 +268,7 @@ func (i *Installer) Uninstall(ctx context.Context, dryRun bool) error {
 	i.step("检查卸载目标")
 
 	xrayInstalled := pathExists(xrayBinary) || pathExists("/etc/systemd/system/xray.service")
-	paths := []string{xrayConfigPath, proxyConfigPath, mihomoConfigPath, shadowrocketConfigPath, shadowrocketQRPath, metadataPath, outputDir}
+	paths := []string{xrayConfigPath, proxyConfigPath, mihomoConfigPath, xrayClientConfigPath, shadowrocketConfigPath, shadowrocketQRPath, metadataPath, outputDir}
 
 	if dryRun {
 		fmt.Fprintln(i.stdout, "Dry run：以下内容将被移除：")
@@ -444,11 +458,13 @@ func (i *Installer) printSummary(result *Result) {
 	fmt.Fprintf(i.stdout, "- xray config: %s\n", result.XrayConfigPath)
 	fmt.Fprintf(i.stdout, "- flclash config: %s\n", result.ProxyConfigPath)
 	fmt.Fprintf(i.stdout, "- mihomo config: %s\n", result.MihomoConfigPath)
+	fmt.Fprintf(i.stdout, "- xray client config: %s\n", result.XrayClientConfigPath)
 	fmt.Fprintf(i.stdout, "- shadowrocket config: %s\n", result.ShadowrocketConfigPath)
 	fmt.Fprintf(i.stdout, "- shadowrocket QR code: %s\n", result.ShadowrocketQRPath)
 	fmt.Fprintf(i.stdout, "- install record: %s\n", metadataPath)
 	fmt.Fprintf(i.stdout, "\n获取 FlClash 配置命令：\n  sudo cat %s\n", result.ProxyConfigPath)
 	fmt.Fprintf(i.stdout, "\n获取 Mihomo 配置命令：\n  sudo cat %s\n", result.MihomoConfigPath)
+	fmt.Fprintf(i.stdout, "\n获取原生 Xray 客户端配置命令：\n  sudo cat %s\n", result.XrayClientConfigPath)
 	fmt.Fprintf(i.stdout, "\n获取小火箭分享链接命令（可从剪贴板导入）：\n  sudo cat %s\n", result.ShadowrocketConfigPath)
 	fmt.Fprintln(i.stdout, "终端二维码显示不完整时，请将 PNG 文件复制到本地打开后扫描，或保存到相册导入。")
 }
@@ -462,6 +478,7 @@ func (i *Installer) printDryRunSummary(result *Result) {
 	fmt.Fprintf(i.stdout, "- would write xray config to: %s\n", result.XrayConfigPath)
 	fmt.Fprintf(i.stdout, "- would write flclash config to: %s\n", result.ProxyConfigPath)
 	fmt.Fprintf(i.stdout, "- would write mihomo config to: %s\n", result.MihomoConfigPath)
+	fmt.Fprintf(i.stdout, "- would write xray client config to: %s\n", result.XrayClientConfigPath)
 	fmt.Fprintf(i.stdout, "- would write shadowrocket config to: %s\n", result.ShadowrocketConfigPath)
 	fmt.Fprintf(i.stdout, "- would write shadowrocket QR code to: %s\n", result.ShadowrocketQRPath)
 	fmt.Fprintf(i.stdout, "- would save install record to: %s\n", metadataPath)

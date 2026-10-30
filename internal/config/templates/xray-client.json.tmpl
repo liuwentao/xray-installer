@@ -1,0 +1,51 @@
+{
+  "log": {"loglevel": "warning"},
+  "inbounds": [
+    {
+      "tag": "socks",
+      "listen": "127.0.0.1",
+      "port": 1080,
+      "protocol": "socks",
+      "settings": {"auth": "noauth", "udp": true}
+    },
+    {
+      "tag": "http",
+      "listen": "127.0.0.1",
+      "port": 8080,
+      "protocol": "http",
+      "settings": {}
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": {{ q .Domain }},
+            "port": {{ .Port }},
+            "users": [
+              {
+                "id": {{ q .UUID }},
+                "encryption": "none",
+                "flow": "xtls-rprx-vision"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "fingerprint": "chrome",
+          "serverName": {{ q .DestHost }},
+          "password": {{ q .PublicKey }},
+          "shortId": {{ q .ShortID }},
+          "spiderX": "/"
+        }
+      }
+    }
+  ]
+}

@@ -177,7 +177,7 @@ func readLine(reader *bufio.Reader) (string, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintf(w, `xray-installer - 在 VPS 本机交互式安装 Xray Reality 并生成 FlClash / Mihomo / 小火箭配置及二维码
+	fmt.Fprintf(w, `xray-installer - 在 VPS 本机交互式安装 Xray Reality 并生成 FlClash / Mihomo / 小火箭 / 原生 Xray 客户端配置及二维码
 
 用法:
   xray-installer [--dry-run]
@@ -192,7 +192,7 @@ func printUsage(w io.Writer) {
   3. 然后自动安装 Xray、生成配置并启动服务
 
 命令:
-  update       更新 Xray，保留现有节点和客户端配置
+  update       更新 Xray，保留现有节点和客户端配置，补生成缺失的原生 Xray 客户端配置
   uninstall    卸载 Xray，并删除 xray-installer 生成的文件
 
 选项:

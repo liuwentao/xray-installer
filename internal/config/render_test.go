@@ -44,6 +44,63 @@ func TestRenderXray(t *testing.T) {
 	}
 }
 
+func TestRenderXrayClient(t *testing.T) {
+	params := sampleParameters()
+	params.Port = 8443
+	data, err := RenderXrayClient(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed struct {
+		Inbounds []struct {
+			Listen   string
+			Port     int
+			Protocol string
+		}
+		Outbounds []struct {
+			Protocol string
+			Settings struct {
+				Vnext []struct {
+					Address string
+					Port    int
+					Users   []struct{ ID, Encryption, Flow string }
+				}
+			}
+			StreamSettings struct {
+				Security        string
+				RealitySettings struct{ ServerName, Password, ShortID, Fingerprint string }
+			}
+		}
+	}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if len(parsed.Inbounds) != 2 || len(parsed.Outbounds) != 1 {
+		t.Fatalf("unexpected client structure: %s", data)
+	}
+	for n, inbound := range parsed.Inbounds {
+		if inbound.Listen != "127.0.0.1" || inbound.Port != []int{1080, 8080}[n] || inbound.Protocol != []string{"socks", "http"}[n] {
+			t.Fatalf("unexpected local proxy: %+v", inbound)
+		}
+	}
+	outbound := parsed.Outbounds[0]
+	if outbound.Protocol != "vless" || len(outbound.Settings.Vnext) != 1 {
+		t.Fatalf("unexpected outbound: %+v", outbound)
+	}
+	node := outbound.Settings.Vnext[0]
+	if node.Address != params.Domain || node.Port != params.Port || len(node.Users) != 1 {
+		t.Fatalf("unexpected node: %+v", node)
+	}
+	user := node.Users[0]
+	reality := outbound.StreamSettings.RealitySettings
+	if user.ID != params.UUID || user.Encryption != "none" || user.Flow != "xtls-rprx-vision" || outbound.StreamSettings.Security != "reality" || reality.ServerName != params.DestHost || reality.Password != params.PublicKey || reality.ShortID != params.ShortID || reality.Fingerprint != "chrome" {
+		t.Fatalf("client credentials do not match server parameters: %s", data)
+	}
+	if strings.Contains(string(data), params.PrivateKey) || strings.Contains(string(data), "privateKey") {
+		t.Fatal("client config contains server private key")
+	}
+}
+
 func TestRenderFlClash(t *testing.T) {
 	data, err := RenderFlClash(sampleParameters())
 	if err != nil {
